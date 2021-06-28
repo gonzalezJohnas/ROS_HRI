@@ -7,7 +7,9 @@ Python scripts with ROS integration to perform Human robot interaction:
 Work in progress 
 
 # Dependencies
-Python3 with ROS (follow this to setup the environment https://medium.com/@beta_b0t/how-to-setup-ros-with-python-3-44a69ca36674)
+Python3 with ROS (follow this to setup the environment https://medium.com/@beta_b0t/how-to-setup-ros-with-python-3-44a69ca36674).
+
 Install the requirements of the project:
-  pip install -r requirements.txt
+  
+	pip install -r requirements.txt
   
