@@ -18,8 +18,8 @@ import handGesture.gui
 frame_processed = 0
 score_thresh = 0.18
 
-class HandGesture(object):
 
+class HandGesture(object):
 
     def __init__(self, label_pose_path):
         self.nb_hand = 1
@@ -40,7 +40,6 @@ class HandGesture(object):
         self.model, self.classification_graph, self.session = classifier.load_KerasGraph("/home/icub/Documents/Jonas/HandPose/cnn/models/hand_poses_wGarbage_10.h5")
 
     def run(self, frame):
-
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         boxes, scores = detector_utils.detect_objects(
@@ -53,6 +52,7 @@ class HandGesture(object):
         # draw bounding boxes
         detector_utils.draw_box_on_image(self.nb_hand, self.thr,
                                          scores, boxes, frame.shape[1], frame.shape[0], frame)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
         # classify hand pose
         if res is not None:

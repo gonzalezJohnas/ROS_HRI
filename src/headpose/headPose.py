@@ -60,7 +60,7 @@ class HeadPose:
         distance = ((x1-x2)**2 +(y1-y2)**2)**0.5
         return distance
 
-    def getPose(self, frame):
+    def run(self, frame):
         height, width = frame.shape[:2]
 
         image_bboxes = self.model_test.get_bbox(frame)

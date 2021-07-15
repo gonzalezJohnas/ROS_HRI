@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package>
+  <name>ROS_humanSensing</name>
+  <version>0.0.1</version>
+  <description >
+  This contains the messages, actions and services for interfacing with the HRI framework ROS.
+  </description>
+
+  <author email="jonas.gonzalez@iit.it">Jonas Gonzalez</author>
+
+  <maintainer email="jonas.gonzalez@iit.it">IIT RBCS</maintainer>
+  <license>BSD</license>
+
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>std_msgs</build_depend>
+
+  <build_depend>message_generation</build_depend>
+
+  <run_depend>message_runtime</run_depend>
+  <run_depend>rospy</run_depend>
+  <run_depend>std_msgs</run_depend>
+
+
+</package>

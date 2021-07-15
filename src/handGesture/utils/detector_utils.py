@@ -16,7 +16,7 @@ sys.path.append("..")
 # score threshold for showing bounding boxes.
 _score_thresh = 0.27
 
-MODEL_NAME = '/home/icub/PycharmProjects/ROS_humanSensing/src/handGesture/hand_inference_graph'
+MODEL_NAME = '/home/icub/catkin_build_ws/src/ROS_humanSensing/src/handGesture/hand_inference_graph'
 # Path to frozen detection graph. This is the actual model that is used for the object detection.
 PATH_TO_CKPT = MODEL_NAME + '/frozen_inference_graph.pb'
 # List of the strings that is used to add correct label for each box.
