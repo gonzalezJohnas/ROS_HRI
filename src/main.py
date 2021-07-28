@@ -13,10 +13,11 @@ from humanpose import HumanPose
 from headpose import HeadPose
 import os
 import json
+import argparse
 
 class ImageReceiver:
 
-    def __init__(self, input_node_ing):
+    def __init__(self, args ):
         self.run = False
 
         self.joint_pub_velocity = rospy.Publisher('joint_velocity', JointVelocity, queue_size=10)
@@ -26,8 +27,8 @@ class ImageReceiver:
         self.service_saveHand = rospy.Service('save_hands', SaveHands, self.handle_hand_saving)
 
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber(input_node_ing, Image, self.callback)
-        self.humanPose_estimator = HumanPose("/home/icub/catkin_build_ws/src/ROS_HRI/src/humanpose/checkpoint/checkpoint_iter_370000.pth")
+        self.image_sub = rospy.Subscriber(args.camera_node_name, Image, self.callback)
+        self.humanPose_estimator = HumanPose(args.model_humanpose_path, args.model_hand_path, args.label_hand_path)
 
         self.run = True
 
@@ -70,8 +71,19 @@ class ImageReceiver:
 
 def main():
     rospy.init_node('human_sensing', anonymous=True)
-    cam_node = "/webcam/image_raw" # "/camera/color/image_raw"
-    ic = ImageReceiver(cam_node)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("camera_node_name", help="Name of the ROS node input camera",
+                        type=str)
+    parser.add_argument("model_humanpose_path", help="Model path for the human pose estimation",
+                        type=str)
+    parser.add_argument("model_hand_path", help="Model path for the hand classifier",
+                        type=str)
+    parser.add_argument("label_hand_path", help="Label file path for the hand classifier",
+                        type=str)
+    args = parser.parse_args()
+
+    ic = ImageReceiver(args)
     try:
         rospy.spin()
     except KeyboardInterrupt:

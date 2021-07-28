@@ -19,7 +19,7 @@ import os
 
 
 class HumanPose(object):
-    def __init__(self, checkpoint_path, input_size_model=256):
+    def __init__(self, checkpoint_path, hand_model_path, label_path, input_size_model=256):
         self.model = PoseEstimationWithMobileNet()
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         load_state(self.model, checkpoint)
@@ -29,11 +29,11 @@ class HumanPose(object):
         self.model = self.model.cuda()
 
         self.previous_poses = []
-        self.model_hand, self.classification_graph, self.session = classifier.load_KerasGraph("/home/icub/Documents/Jonas/HandPose/cnn/models/hand_poses_wGarbage_10.h5")
-        self.headPose_estimator = HeadPose("/home/icub/PycharmProjects/ROS_humanSensing/src/headpose/checkpoint", 0)
+        self.model_hand, self.classification_graph, self.session = classifier.load_KerasGraph(hand_model_path)
+        # self.headPose_estimator = HeadPose("/home/icub/PycharmProjects/ROS_humanSensing/src/headpose/checkpoint", 0)
 
         self.poses_class = []
-        _file = open("/home/icub/catkin_build_ws/src/ROS_HRI/src/handGesture/poses.txt", "r")
+        _file = open(label_path, "r")
         lines = _file.readlines()
         for line in lines:
             line = line.strip()

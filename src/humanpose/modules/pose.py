@@ -208,12 +208,16 @@ class Pose:
         self.joint_angles = {}
 
         for name_angle, parts_angle in self.angle_joint.items():
+
             root_joint = self.joint_dictionary[parts_angle[0]]
             target_joint = self.joint_dictionary[parts_angle[1]]
-            self.joint_angles[name_angle] = getAngle(self.keypoints[root_joint][0],
-                                                     self.keypoints[root_joint][1],
-                                                     self.keypoints[target_joint][0],
-                                                     self.keypoints[target_joint][1])
+            if self.keypoints[root_joint][0] != -1 and self.keypoints[target_joint][0] != -1:
+                self.joint_angles[name_angle] = getAngle(self.keypoints[root_joint][0],
+                                                         self.keypoints[root_joint][1],
+                                                         self.keypoints[target_joint][0],
+                                                         self.keypoints[target_joint][1])
+            else:
+                self.joint_angles[name_angle] = 0
 
         return self.joint_angles
 
