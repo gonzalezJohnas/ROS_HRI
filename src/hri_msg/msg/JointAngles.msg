@@ -1,0 +1,9 @@
+float32 neck
+float32 lshoulder
+float32 rshoulder
+float32 lelbow
+float32 relbow
+float32 lwrist
+float32 rwrist
+float32 lknee
+float32 rknee

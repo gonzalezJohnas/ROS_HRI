@@ -21,13 +21,16 @@ class Face:
 
 class HeadPose:
     def __init__(self, model_path, device_id):
-        self.model_test = AntiSpoofPredict(device_id, model_path)
-        checkpoint = torch.load(os.path.join(model_path, "checkpoint.pth.tar") , map_location=self.model_test.device)
-        plfd_backbone = PFLDInference().to(self.model_test.device)
+        self.device_id = torch.device("cuda:{}".format(device_id) if torch.cuda.is_available() else "cpu")
+
+        # self.model_test = AntiSpoofPredict(device_id, model_path)
+        checkpoint = torch.load(os.path.join(model_path, "checkpoint.pth.tar") , map_location=self.device_id)
+        plfd_backbone = PFLDInference().to(self.device_id)
         plfd_backbone.load_state_dict(checkpoint['plfd_backbone'])
         plfd_backbone.eval()
-        self.plfd_backbone = plfd_backbone.to(self.model_test.device)
+        self.plfd_backbone = plfd_backbone.to(self.device_id)
         self.transform = transforms.Compose([transforms.ToTensor()])
+        self.color_text = (0, 0, 0)
 
     def get_num(self, point_dict, name, axis):
         num = point_dict.get(f'{name}')[axis]
@@ -60,10 +63,10 @@ class HeadPose:
         distance = ((x1-x2)**2 +(y1-y2)**2)**0.5
         return distance
 
-    def run(self, frame):
+    def run(self, frame, image_bboxes):
         height, width = frame.shape[:2]
 
-        image_bboxes = self.model_test.get_bbox(frame)
+        # image_bboxes = self.model_test.get_bbox(frame)
         faces = []
         for image_bbox in image_bboxes:
             x1 = image_bbox[0]
@@ -102,7 +105,7 @@ class HeadPose:
 
             input = cv2.resize(cropped, (112, 112))
             input = cv2.cvtColor(input, cv2.COLOR_BGR2RGB)
-            input = self.transform(input).unsqueeze(0).to(self.model_test.device)
+            input = self.transform(input).unsqueeze(0).to(self.device_id)
             _, landmarks = self.plfd_backbone(input)
             pre_landmark = landmarks[0]
             pre_landmark = pre_landmark.cpu().detach().numpy().reshape(-1, 2) * [112, 112]
@@ -136,12 +139,13 @@ class HeadPose:
             if self.get_num(point_dict, 60, 1) > self.get_num(point_dict, 72, 1):
                 roll = -roll
             roll = int(roll)
-            cv2.putText(frame, f"Head_Yaw(degree): {yaw}", (30, 50), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.5, (0, 255, 0), 1)
-            cv2.putText(frame, f"Head_Pitch(degree): {pitch}", (30, 100), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.5, (0, 255, 0), 1)
-            cv2.putText(frame, f"Head_Roll(degree): {roll}", (30, 150), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.5, (0, 255, 0), 1)
+            cv2.putText(frame, f"Head_Yaw(degree): {yaw}", (30, 50), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.5, self.color_text, 1)
+            cv2.putText(frame, f"Head_Pitch(degree): {pitch}", (30, 100), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.5, self.color_text, 1)
+            cv2.putText(frame, f"Head_Roll(degree): {roll}", (30, 150), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.5, self.color_text, 1)
             frame = self.draw_axis(frame, yaw, pitch, roll, tdx=cx, tdy=cy)
             faces.append(Face(yaw, pitch, roll, image_bbox))
         return faces, frame
+
 
     def draw_axis(self, img, yaw, pitch, roll, tdx=None, tdy=None, size=80):
 

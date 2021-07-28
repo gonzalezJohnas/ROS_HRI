@@ -9,6 +9,7 @@ from humanpose.modules.one_euro_filter import OneEuroFilter
 from datetime import datetime
 from utils import check_img_limit
 
+
 class Pose:
     num_kpts = 18
     kpt_names = ['nose', 'neck',
@@ -46,8 +47,6 @@ class Pose:
 
         self.saving_path = '/tmp/left_hand/'
 
-        self.measure_time = None
-
     @staticmethod
     def get_bbox(keypoints):
         found_keypoints = np.zeros((np.count_nonzero(keypoints[:, 0] != -1), 2), dtype=np.int32)
@@ -61,7 +60,12 @@ class Pose:
         return bbox
 
     def update_previous_pose(self, pose):
-        self.previous_pose = pose
+        if self.previous_pose is None:
+            self.previous_pose = pose
+        else:
+            for name_angle, id_angle in self.joint_dictionary.items():
+                if pose.keypoints[id_angle, 0] != 1:
+                    self.previous_pose.keypoints[id_angle] = pose.keypoints[id_angle]
 
     def update_id(self, id=None):
         self.id = id
@@ -70,8 +74,6 @@ class Pose:
             Pose.last_id += 1
 
     def draw(self, img):
-
-        self.measure_time = datetime.now()
 
         assert self.keypoints.shape == (Pose.num_kpts, 2)
 
@@ -89,22 +91,30 @@ class Pose:
             if global_kpt_a_id != -1 and global_kpt_b_id != -1:
                 cv2.line(img, (int(x_a), int(y_a)), (int(x_b), int(y_b)), Pose.color, 5)
 
-
-
-
     def extract_hands(self, img, save=False):
+
+        if self.keypoints[5][0] == -1 or self.keypoints[2][0] == -1:
+            return None, None
+
         lshoulder_X, lshoulder_Y = self.keypoints[5]
         rshoulder_X, rshoulder_Y = self.keypoints[2]
+
         distance_forearm = math.sqrt(((lshoulder_X - rshoulder_X) ** 2) + ((lshoulder_Y - rshoulder_Y) ** 2))
 
-        left_hand_coord, roi_left_hand = self._get_hand_bounding_box(self.keypoints[7], distance_forearm, self.joint_angles["lwrist"], img, save)
-        right_hand_coord, roi_right_hand = self._get_hand_bounding_box(self.keypoints[4], distance_forearm, self.joint_angles["rwrist"], img, save)
+        left_hand_coord, roi_left_hand = self._get_hand_bounding_box(self.keypoints[7], distance_forearm,
+                                                                     self.joint_angles["lwrist"], img, save)
+        right_hand_coord, roi_right_hand = self._get_hand_bounding_box(self.keypoints[4], distance_forearm,
+                                                                       self.joint_angles["rwrist"], img, save)
 
-        cv2.rectangle(img, (left_hand_coord[0], left_hand_coord[1]), (left_hand_coord[2], left_hand_coord[3]), (0, 0, 255), 2)
-        cv2.rectangle(img, (right_hand_coord[0], right_hand_coord[1]), (right_hand_coord[2], right_hand_coord[3]), (0, 0, 255), 2)
+        if roi_left_hand is not None:
+            cv2.rectangle(img, (left_hand_coord[0], left_hand_coord[1]), (left_hand_coord[2], left_hand_coord[3]),
+                          (0, 0, 255), 2)
+
+        if roi_right_hand is not None:
+            cv2.rectangle(img, (right_hand_coord[0], right_hand_coord[1]), (right_hand_coord[2], right_hand_coord[3]),
+                          (0, 0, 255), 2)
 
         return roi_left_hand, roi_right_hand
-
 
     def _get_hand_bounding_box(self, wrist_keypoint, distance_forearm, wrist_angle, img, save):
         roi_hand = None
@@ -128,24 +138,71 @@ class Pose:
                 end_point_x = int(start_point_x + (distance_forearm))
                 end_point_y = int(start_point_y - (multiplier * distance_forearm / 1.2))
 
-            start_point_x, start_point_y, end_point_x, end_point_y = check_img_limit(start_point_x, start_point_y, end_point_x, end_point_y, img.shape)
+            start_point_x, start_point_y, end_point_x, end_point_y = check_img_limit(start_point_x, start_point_y,
+                                                                                     end_point_x, end_point_y,
+                                                                                     img.shape)
 
             if multiplier > 0:
                 roi_hand = img[end_point_y:end_point_y + abs(end_point_y - start_point_y),
-                                start_point_x:start_point_x + abs(end_point_x - start_point_x)]
+                           start_point_x:start_point_x + abs(end_point_x - start_point_x)]
+
             else:
                 roi_hand = img[start_point_y:start_point_y + abs(end_point_y - start_point_y),
-                                start_point_x:start_point_x + abs(end_point_x - start_point_x)]
+                           start_point_x:start_point_x + abs(end_point_x - start_point_x)]
+
+            roi_hand = roi_hand if not roi_hand.size == 0 else None
 
             if save:
                 timestamp = datetime.timestamp(datetime.now())
-                cv2.imwrite(os.path.join(self.saving_path, f"img_{timestamp}.png"), roi_hand)
-
+                resized = cv2.resize(roi_hand, (150, 150), interpolation=cv2.INTER_AREA)
+                cv2.imwrite(os.path.join(self.saving_path, f"img_{timestamp}.png"), resized)
 
         return [start_point_x, start_point_y, end_point_x, end_point_y], roi_hand
 
+    def extract_face(self, img):
 
+        right_anchor = self._get_face_anchor()
 
+        if right_anchor[0] == -1 or (self.keypoints[17][0] == -1 and self.keypoints[15][0]):
+            return None
+
+        width_face = abs(right_anchor[0] - int(self.keypoints[17][0] * 1.02)) if self.keypoints[17][0] != -1 else abs(
+            right_anchor[0] - int(self.keypoints[15][0] * 1.02))
+        height_face = int(width_face * 1.5)
+
+        start_point_x = right_anchor[0]
+        start_point_y = right_anchor[1] - height_face // 2
+
+        end_point_x = start_point_x + width_face
+        end_point_y = start_point_y + height_face
+
+        cv2.rectangle(img, (start_point_x, start_point_y), (end_point_x, end_point_y),
+                      (0, 255, 0), 2)
+
+        return [start_point_x, start_point_y, width_face, height_face]
+
+    def _get_face_anchor(self):
+        right_anchor = None
+
+        if self.keypoints[16][0] != -1:
+            right_anchor = self.keypoints[16]
+
+        elif self.keypoints[14][0] != -1:
+            right_anchor = self.keypoints[14]
+        else:
+            right_anchor = self.keypoints[0]
+
+        return right_anchor
+
+    def _get_width_face(self):
+        width_face = -1
+        if self.keypoints[17][0] != -1 and self.keypoints[16][0] != -1:
+            width_face = abs(self.keypoints[17][0] - self.keypoints[16][0])
+
+        elif self.keypoints[17][0] != -1 and self.keypoints[16][0] == -1:
+            width_face = abs(self.keypoints[17][0] - self.keypoints[16][0])
+
+        return width_face
 
     def compute_angle_joints(self):
         self.joint_angles = {}
@@ -154,42 +211,45 @@ class Pose:
             root_joint = self.joint_dictionary[parts_angle[0]]
             target_joint = self.joint_dictionary[parts_angle[1]]
             self.joint_angles[name_angle] = getAngle(self.keypoints[root_joint][0],
-                                               self.keypoints[root_joint][1],
-                                               self.keypoints[target_joint][0],
-                                               self.keypoints[target_joint][1])
+                                                     self.keypoints[root_joint][1],
+                                                     self.keypoints[target_joint][0],
+                                                     self.keypoints[target_joint][1])
 
         return self.joint_angles
 
-    def compute_joints_velocity(self):
-        current_tine = datetime.now()
-        delta = (current_tine - self.measure_time).total_seconds()
+    def compute_joints_velocity(self, infer_time):
+        current_time = datetime.now()
+        delta = (current_time - infer_time).total_seconds()
 
-        self.joint_velocity = {}
-        row_x = []
-        if self.previous_pose is None:
-            return self.joint_velocity
+        row_x, row_y = [], []
+
+
         for name_angle, id_angle in self.joint_dictionary.items():
+
+            if self.previous_pose is None:
+                self.joint_velocity[name_angle] = 0
+                continue
+
             current_joint_value = self.keypoints[id_angle]
             previous_joint_value = self.previous_pose.keypoints[id_angle]
 
+            delta_pose = current_joint_value - previous_joint_value
 
-            delta_pose = abs(current_joint_value - previous_joint_value)
+            speed_x = delta_pose[0] / (delta * 1000)
+            speed_y = delta_pose[1] / (delta * 1000)
 
-            if 8 < delta_pose[0] < 250:
-                speed = delta_pose[0]/delta
-                speed /= 1000
-                row_x.append(speed)
-                self.joint_velocity[name_angle] = speed
+            row_x.append(speed_x)
+            row_y.append(speed_y)
+            self.joint_velocity[name_angle] = speed_x
 
-            else:
-                row_x.append(0)
-                self.joint_velocity[name_angle] = 0
+        with open('/home/icub/catkin_build_ws/src/ROS_HRI/data/joint_velocity_x.csv', 'a') as f:
+            writer = csv.writer(f)
+            writer.writerow([datetime.timestamp(current_time)] + row_x)
 
+        with open('/home/icub/catkin_build_ws/src/ROS_HRI/data/joint_velocity_y.csv', 'a') as f:
+            writer = csv.writer(f)
+            writer.writerow([datetime.timestamp(current_time)] + row_y)
 
-        row = [ current_tine.timestamp()] + row_x
-        # with open('/home/icub/PycharmProjects/ROS_humanSensing/python_live_plot_data.csv', 'a') as f:
-        #     writer = csv.writer(f)
-        #     writer.writerow(row)
         return self.joint_velocity
 
 
